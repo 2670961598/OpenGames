@@ -1,0 +1,375 @@
+# Kong API Gateway 安全配置
+# 包含认证、授权、限流、WAF等安全策略
+
+_format_version: "3.0"
+_transform: true
+
+services:
+  # ============================================
+  # 游戏服务
+  # ============================================
+  - name: game-service
+    url: http://game-service:8080
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+          fault_tolerant: true
+          hide_client_headers: false
+          redis_timeout: 2000
+      - name: cors
+        config:
+          origins:
+            - "https://game-platform.com"
+            - "https://*.game-platform.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Request-ID
+            - X-Client-Version
+          exposed_headers:
+            - X-Request-ID
+          credentials: true
+          max_age: 3600
+      - name: jwt
+        config:
+          uri_param_names: []
+          cookie_names: []
+          key_claim_name: iss
+          secret_is_base64: false
+          claims_to_verify:
+            - exp
+          maximum_expiration: 900
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - X-Request-ID:$(uuid)
+              - X-Forwarded-For:$(client_ip)
+      - name: prometheus
+    routes:
+      - name: game-routes
+        paths:
+          - /api/games
+          - /api/games/
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+        protocols:
+          - https
+        https_redirect_status_code: 426
+
+  # ============================================
+  # 用户服务
+  # ============================================
+  - name: user-service
+    url: http://user-service:8081
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+      - name: jwt
+        config:
+          claims_to_verify:
+            - exp
+      - name: acl
+        config:
+          allow:
+            - authenticated
+          hide_groups_header: true
+    routes:
+      - name: user-routes
+        paths:
+          - /api/users
+          - /api/users/
+        strip_path: false
+        methods:
+          - GET
+          - PUT
+          - DELETE
+
+  # ============================================
+  # 分数提交服务（严格限流）
+  # ============================================
+  - name: score-service
+    url: http://score-service:8082
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 10
+          hour: 100
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+          limit_by: credential
+      - name: jwt
+        config:
+          claims_to_verify:
+            - exp
+      - name: request-validator
+        config:
+          body_schema: '{"type":"object","properties":{"score":{"type":"number","minimum":0},"gameId":{"type":"string"},"timestamp":{"type":"number"},"signature":{"type":"string"}},"required":["score","gameId","timestamp","signature"]}'
+          version: draft4
+      - name: bot-detection
+        config:
+          deny:
+            - "~*(bot|crawler|spider|scraper)"
+    routes:
+      - name: score-routes
+        paths:
+          - /api/scores
+          - /api/scores/
+        strip_path: false
+        methods:
+          - POST
+          - GET
+
+  # ============================================
+  # 排行榜服务（公开访问，限流）
+  # ============================================
+  - name: leaderboard-service
+    url: http://leaderboard-service:8083
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 120
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+      - name: proxy-cache
+        config:
+          response_code:
+            - 200
+          request_method:
+            - GET
+          content_type:
+            - application/json
+          cache_ttl: 60
+          strategy: memory
+      - name: response-ratelimiting
+        config:
+          limits:
+            json:
+              minute: 100
+          policy: redis
+          redis_host: redis
+    routes:
+      - name: leaderboard-routes
+        paths:
+          - /api/leaderboard
+          - /api/leaderboard/
+        strip_path: false
+        methods:
+          - GET
+
+  # ============================================
+  # 开发者API（API Key认证）
+  # ============================================
+  - name: developer-api
+    url: http://developer-service:8084
+    plugins:
+      - name: key-auth
+        config:
+          key_names:
+            - api-key
+            - X-API-Key
+          hide_credentials: true
+          run_on_preflight: true
+          key_in_body: false
+      - name: rate-limiting
+        config:
+          minute: ${DEVELOPER_RATE_LIMIT_MINUTE:-100}
+          hour: ${DEVELOPER_RATE_LIMIT_HOUR:-1000}
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+          limit_by: credential
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+          require_content_length: true
+      - name: ip-restriction
+        config:
+          allow: ${DEVELOPER_IP_WHITELIST:-[]}
+    routes:
+      - name: developer-routes
+        paths:
+          - /api/developer
+          - /api/developer/
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+
+  # ============================================
+  # 认证服务（公开，登录限流）
+  # ============================================
+  - name: auth-service
+    url: http://auth-service:8085
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 5
+          hour: 20
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+          limit_by: ip
+          fault_tolerant: true
+          redis_timeout: 2000
+          hide_client_headers: true
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - X-Real-IP:$(client_ip)
+      - name: bot-detection
+        config:
+          deny:
+            - "~*(bot|crawler|spider|scraper)"
+    routes:
+      - name: auth-routes
+        paths:
+          - /api/auth
+          - /api/auth/
+        strip_path: false
+        methods:
+          - POST
+          - GET
+
+  # ============================================
+  # 内容审核服务（管理员访问）
+  # ============================================
+  - name: moderation-service
+    url: http://moderation-service:8086
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify:
+            - exp
+      - name: acl
+        config:
+          allow:
+            - admin
+            - moderator
+      - name: rate-limiting
+        config:
+          minute: 300
+          policy: redis
+          redis_host: redis
+          redis_password: ${REDIS_PASSWORD}
+    routes:
+      - name: moderation-routes
+        paths:
+          - /api/moderation
+          - /api/moderation/
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+
+  # ============================================
+  # 健康检查（无认证）
+  # ============================================
+  - name: health-service
+    url: http://health-service:8087
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 10
+          policy: local
+    routes:
+      - name: health-routes
+        paths:
+          - /health
+          - /health/
+        strip_path: false
+        methods:
+          - GET
+
+consumers:
+  # ============================================
+  # JWT消费者配置
+  # ============================================
+  - username: game-platform-users
+    jwt_secrets:
+      - algorithm: ES256
+        key: game-platform-issuer
+        rsa_public_key: |
+          -----BEGIN PUBLIC KEY-----
+          ${JWT_PUBLIC_KEY}
+          -----END PUBLIC KEY-----
+
+  # ============================================
+  # 开发者API Key配置
+  # ============================================
+  - username: developer-1
+    keyauth_credentials:
+      - key: ${DEVELOPER_API_KEY_1}
+    acls:
+      - group: developer
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 1000
+
+  - username: developer-2
+    keyauth_credentials:
+      - key: ${DEVELOPER_API_KEY_2}
+    acls:
+      - group: developer
+
+plugins:
+  # ============================================
+  # 全局安全插件
+  # ============================================
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid#counter
+      echo_downstream: true
+
+  - name: request-termination
+    config:
+      status_code: 426
+      message: "Upgrade Required - HTTPS Only"
+    route: null
+    service: null
+    consumer: null
+    protocols:
+      - http
+
+  - name: file-log
+    config:
+      path: /var/log/kong/access.log
+      reopen: true
+
+  - name: statsd
+    config:
+      host: statsd
+      port: 8125
+      metrics:
+        - name: status_count
+          stat_type: counter
+          sample_rate: 1
+        - name: latency
+          stat_type: timer
+          sample_rate: 1

@@ -7,7 +7,11 @@
       "Bash(uvx:*)",
       "Bash(specify:*)",
       "Bash(curl -s https://api.github.com/repos/github/spec-kit/releases/latest)",
-      "Bash(curl -I https://github.com/github/spec-kit/releases/tag/templates-2025-08-25)"
+      "Bash(curl -I https://github.com/github/spec-kit/releases/tag/templates-2025-08-25)",
+      "Bash(cp Kimi_Agent_SpecKit/*.md .specify/memory/)",
+      "Bash(cp Kimi_Agent_SpecKit/*.ts .specify/memory/)",
+      "Bash(cp Kimi_Agent_SpecKit/*.mmd .specify/memory/)",
+      "Bash(cp:*)"
     ]
   }
 }

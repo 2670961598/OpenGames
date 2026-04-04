@@ -1,0 +1,184 @@
+%% Web游戏平台 - 完整网络架构图
+%% Mermaid格式 - 可使用 https://mermaid.live/ 在线渲染
+%% 版本: v1.0 | 最后更新: 2026-04-04
+
+graph TB
+    subgraph Client["客户端层"]
+        GameLogic["游戏逻辑"]
+        Render["渲染引擎"]
+        Input["输入处理"]
+    end
+    
+    subgraph SyncAbstraction["同步抽象层"]
+        FrameSync["帧同步接口"]
+        StateSync["状态同步接口"]
+        Prediction["预测/回滚"]
+        Interpolation["插值/外推"]
+    end
+    
+    subgraph Transport["传输层"]
+        WS["WebSocket<br/>可靠通道"]
+        WebRTC["WebRTC DataChannel<br/>实时通道"]
+        UDP["UDP广播<br/>局域网"]
+    end
+    
+    subgraph Serialization["序列化层"]
+        FB["FlatBuffers"]
+        MP["MessagePack"]
+        JSON["JSON"]
+    end
+    
+    subgraph BackendAbstraction["后端抽象层"]
+        Local["本地后端<br/>Web Worker"]
+        Cloud["云端后端<br/>Node.js"]
+        LAN["局域网P2P"]
+    end
+    
+    subgraph Services["服务层"]
+        Room["房间系统"]
+        Match["匹配系统"]
+        Discovery["发现服务"]
+        Relay["中继服务"]
+    end
+    
+    GameLogic --> FrameSync
+    GameLogic --> StateSync
+    Input --> Prediction
+    
+    FrameSync --> WS
+    FrameSync --> WebRTC
+    StateSync --> WS
+    StateSync --> WebRTC
+    
+    WS --> FB
+    WebRTC --> FB
+    UDP --> MP
+    
+    FB --> Local
+    FB --> Cloud
+    MP --> LAN
+    
+    Local --> Room
+    Cloud --> Room
+    Cloud --> Match
+    LAN --> Discovery
+    Cloud --> Relay
+
+%% 数据流向图
+graph LR
+    subgraph InputFlow["输入数据流"]
+        direction TB
+        Player["玩家输入"] --> Buffer["输入缓冲"]
+        Buffer --> Sync["同步策略"]
+        Sync --> Transport["传输层"]
+    end
+    
+    subgraph StateFlow["状态数据流"]
+        direction TB
+        Server["服务器状态"] --> Delta["增量计算"]
+        Delta --> Compress["压缩"]
+        Compress --> Broadcast["广播"]
+        Broadcast --> Client["客户端插值"]
+    end
+
+%% 局域网发现流程
+graph TD
+    A[启动游戏] --> B{选择模式}
+    B -->|局域网主机| C[启动mDNS服务]
+    B -->|局域网客户端| D[发现mDNS服务]
+    B -->|在线模式| E[连接服务器]
+    
+    C --> F[广播房间信息]
+    D --> G[扫描局域网]
+    G --> H[发现房间?]
+    H -->|是| I[连接房间]
+    H -->|否| J[等待/重试]
+    J --> G
+    
+    E --> K[WebSocket连接]
+    K --> L[房间/匹配系统]
+
+%% 帧同步流程
+sequenceDiagram
+    participant C1 as 客户端1
+    participant S as 服务器
+    participant C2 as 客户端2
+    
+    Note over C1,C2: 输入延迟 = 3帧
+    
+    C1->>S: Frame 0 Input
+    C2->>S: Frame 0 Input
+    S->>C1: Broadcast Frame 0 Inputs
+    S->>C2: Broadcast Frame 0 Inputs
+    
+    Note over C1,C2: 收到所有输入，执行Frame 0
+    
+    C1->>S: Frame 1 Input
+    C2->>S: Frame 1 Input
+    S->>C1: Broadcast Frame 1 Inputs
+    S->>C2: Broadcast Frame 1 Inputs
+    
+    Note over C1,C2: 收到所有输入，执行Frame 1
+
+%% 状态同步流程
+sequenceDiagram
+    participant Client as 客户端
+    participant Server as 服务器
+    
+    loop 每50ms (20Hz)
+        Client->>Server: 发送输入
+        Server->>Server: 处理输入
+        Server->>Server: 更新世界状态
+        Server->>Client: 发送增量状态
+        Client->>Client: 插值渲染
+    end
+
+%% 断线重连流程
+graph TD
+    A[检测到断线] --> B[尝试快速重连]
+    B --> C{重连成功?}
+    C -->|是| D[请求重连数据]
+    C -->|否| E[等待网络恢复]
+    E --> B
+    
+    D --> F[服务器查找快照]
+    F --> G[发送快照+错过的输入]
+    G --> H[客户端恢复状态]
+    H --> I[重新应用预测输入]
+    I --> J[游戏继续]
+
+%% 架构层次图
+graph TB
+    subgraph Application["应用层"]
+        A1[游戏逻辑]
+        A2[房间管理]
+        A3[匹配系统]
+    end
+    
+    subgraph Abstraction["抽象层"]
+        B1[同步策略抽象]
+        B2[后端抽象]
+        B3[传输抽象]
+    end
+    
+    subgraph Implementation["实现层"]
+        C1[帧同步/状态同步]
+        C2[本地/云端后端]
+        C3[WebSocket/WebRTC]
+    end
+    
+    subgraph Infrastructure["基础设施"]
+        D1[Redis缓存]
+        D2[Consul服务发现]
+        D3[STUN/TURN服务器]
+    end
+    
+    A1 --> B1
+    A2 --> B2
+    A3 --> B2
+    B1 --> C1
+    B2 --> C2
+    B3 --> C3
+    C2 --> D1
+    C2 --> D2
+    C3 --> D3

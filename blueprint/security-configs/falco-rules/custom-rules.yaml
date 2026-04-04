@@ -1,0 +1,292 @@
+# Falco 运行时安全规则
+# 针对Web游戏平台的安全监控规则
+
+# ============================================
+# 1. 容器逃逸检测
+# ============================================
+- rule: Container Escape via Privileged Container
+  desc: Detect attempts to escape from a privileged container
+  condition: >
+    spawned_process and
+    container and
+    (proc.name in ("nsenter", "runc", "runc-init") or
+     (proc.name = "sh" and proc.args contains "-c" and proc.args contains "/proc/"))
+  output: >
+    Potential container escape attempt
+    (user=%user.name command=%proc.cmdline
+    container=%container.name container_id=%container.id)
+  priority: CRITICAL
+
+- rule: Write to /proc/sys
+  desc: Detect writes to /proc/sys (kernel parameter modification)
+  condition: >
+    write_etc_common and
+    (fd.name startswith /proc/sys or
+     fd.name startswith /sys/)
+  output: >
+    Kernel parameter modification attempt
+    (user=%user.name command=%proc.cmdline file=%fd.name)
+  priority: CRITICAL
+
+# ============================================
+# 2. 异常网络活动检测
+# ============================================
+- rule: Outbound Connection from Game Sandbox
+  desc: Detect unexpected outbound connections from game sandbox containers
+  condition: >
+    outbound and
+    container and
+    container.name contains "game-sandbox" and
+    not (fd.sip in (trusted_dns_servers) or
+         fd.sport in (53, 443) or
+         fd.sip in (platform_api_ips))
+  output: >
+    Unauthorized outbound connection from game sandbox
+    (connection=%fd.name container=%container.name
+    command=%proc.cmdline)
+  priority: HIGH
+
+- rule: Connection to Suspicious IP
+  desc: Detect connections to known malicious IPs
+  condition: >
+    outbound and
+    fd.sip in (malicious_ips)
+  output: >
+    Connection to known malicious IP
+    (ip=%fd.sip port=%fd.sport command=%proc.cmdline)
+  priority: CRITICAL
+
+# ============================================
+# 3. 文件系统监控
+# ============================================
+- rule: Sensitive File Access in Container
+  desc: Detect access to sensitive files within containers
+  condition: >
+    open_read and
+    container and
+    (fd.name contains "/etc/shadow" or
+     fd.name contains "/etc/passwd" or
+     fd.name contains "/etc/kubernetes" or
+     fd.name contains "/var/run/docker.sock")
+  output: >
+    Sensitive file accessed in container
+    (file=%fd.name user=%user.name
+    container=%container.name command=%proc.cmdline)
+  priority: HIGH
+
+- rule: Game Code Modification
+  desc: Detect modification of game code files
+  condition: >
+    write and
+    container and
+    container.name contains "game" and
+    (fd.name endswith ".js" or
+     fd.name endswith ".wasm" or
+     fd.name endswith ".html")
+  output: >
+    Game code file modified
+    (file=%fd.name user=%user.name
+    container=%container.name command=%proc.cmdline)
+  priority: MEDIUM
+
+# ============================================
+# 4. 进程监控
+# ============================================
+- rule: Unexpected Process in Game Sandbox
+  desc: Detect unexpected processes running in game sandbox
+  condition: >
+    spawned_process and
+    container and
+    container.name contains "game-sandbox" and
+    not (proc.name in ("node", "quickjs", "wasmtime", "sleep", "sh") or
+         proc.cmdline contains "/game/")
+  output: >
+    Unexpected process in game sandbox
+    (process=%proc.name cmdline=%proc.cmdline
+    container=%container.name)
+  priority: HIGH
+
+- rule: Cryptomining Process Detected
+  desc: Detect known cryptocurrency mining processes
+  condition: >
+    spawned_process and
+    (proc.name in ("xmrig", "minerd", "ccminer", "cgminer", "bfgminer",
+                    "stratum", "ethminer", "nbminer", "t-rex", "phoenixminer") or
+     (proc.cmdline contains "stratum+tcp" or
+      proc.cmdline contains "stratum+ssl" or
+      proc.cmdline contains "--donate-level" or
+      proc.cmdline contains "-o pool."))
+  output: >
+    Cryptocurrency mining process detected
+    (process=%proc.name cmdline=%proc.cmdline
+    container=%container.name)
+  priority: CRITICAL
+
+- rule: Reverse Shell Detection
+  desc: Detect potential reverse shell
+  condition: >
+    spawned_process and
+    (proc.name in ("bash", "sh", "python", "python3", "perl", "ruby", "nc", "ncat") and
+     (proc.cmdline contains "/dev/tcp/" or
+      proc.cmdline contains "/dev/udp/" or
+      proc.cmdline contains "socket.socket" or
+      proc.cmdline contains "pty.spawn" or
+      proc.cmdline contains "subprocess.call" or
+      proc.cmdline contains "os.system" or
+      proc.cmdline contains "exec("))
+  output: >
+    Potential reverse shell detected
+    (process=%proc.name cmdline=%proc.cmdline
+    container=%container.name)
+  priority: CRITICAL
+
+# ============================================
+# 5. 权限提升检测
+# ============================================
+- rule: Sudo or Su Execution
+  desc: Detect sudo or su command execution
+  condition: >
+    spawned_process and
+    (proc.name = "sudo" or proc.name = "su")
+  output: >
+    Privilege escalation command executed
+    (command=%proc.cmdline user=%user.name
+    container=%container.name)
+  priority: HIGH
+
+- rule: Setuid/Setgid Bit Set
+  desc: Detect files with setuid/setgid bits being created
+  condition: >
+    chmod and
+    (evt.arg.mode contains "S_ISUID" or
+     evt.arg.mode contains "S_ISGID" or
+     evt.arg.mode contains "4000" or
+     evt.arg.mode contains "2000")
+  output: >
+    Setuid/setgid bit set on file
+    (file=%evt.arg.filename mode=%evt.arg.mode
+    user=%user.name)
+  priority: HIGH
+
+# ============================================
+# 6. API安全监控
+# ============================================
+- rule: High Rate of API Errors
+  desc: Detect unusually high rate of API errors
+  condition: >
+    spawned_process and
+    container and
+    container.name contains "api" and
+    (proc.cmdline contains "429" or
+     proc.cmdline contains "401" or
+     proc.cmdline contains "403")
+  output: >
+    High rate of API errors detected
+    (command=%proc.cmdline container=%container.name)
+  priority: MEDIUM
+
+# ============================================
+# 7. 数据泄露检测
+# ============================================
+- rule: Large Data Transfer
+  desc: Detect unusually large data transfers
+  condition: >
+    outbound and
+    (evt.rawres >= 104857600)  # 100MB
+  output: >
+    Large data transfer detected
+    (bytes=%evt.rawres connection=%fd.name)
+  priority: MEDIUM
+
+- rule: Database Dump Detected
+  desc: Detect potential database dump
+  condition: >
+    spawned_process and
+    (proc.name in ("mysqldump", "pg_dump", "mongodump") or
+     (proc.cmdline contains "SELECT" and proc.cmdline contains "INTO OUTFILE") or
+     (proc.cmdline contains "COPY" and proc.cmdline contains "TO STDOUT"))
+  output: >
+    Database dump command detected
+    (command=%proc.cmdline user=%user.name)
+  priority: HIGH
+
+# ============================================
+# 8. 游戏作弊检测
+# ============================================
+- rule: Memory Manipulation Tool
+  desc: Detect memory manipulation tools (potential game cheating)
+  condition: >
+    spawned_process and
+    (proc.name in ("scanmem", "gameconqueror", "cheatengine", "artmoney",
+                    "processhacker", "procexp", "procexp64") or
+     proc.cmdline contains "memory scan" or
+     proc.cmdline contains "value scan")
+  output: >
+    Memory manipulation tool detected
+    (process=%proc.name cmdline=%proc.cmdline
+    container=%container.name)
+  priority: HIGH
+
+- rule: Debugger Attachment
+  desc: Detect debugger attachment to game process
+  condition: >
+    spawned_process and
+    (proc.name in ("gdb", "lldb", "strace", "ltrace") or
+     proc.cmdline contains "ptrace" or
+     proc.cmdline contains "PTRACE_ATTACH")
+  output: >
+    Debugger attachment detected
+    (process=%proc.name cmdline=%proc.cmdline
+    container=%container.name)
+  priority: HIGH
+
+# ============================================
+# 9. 系统调用监控
+# ============================================
+- rule: Suspicious Syscall Pattern
+  desc: Detect suspicious system call patterns
+  condition: >
+    syscall.type in ("execve", "fork", "clone") and
+    not proc.name in ("node", "python", "quickjs", "wasmtime")
+  output: >
+    Suspicious syscall pattern
+    (syscall=%syscall.type process=%proc.name
+    cmdline=%proc.cmdline)
+  priority: LOW
+
+# ============================================
+# 10. 配置变更监控
+# ============================================
+- rule: Security Configuration Modified
+  desc: Detect modification of security-related configuration files
+  condition: >
+    write and
+    (fd.name contains "/etc/security" or
+     fd.name contains "/etc/pam.d" or
+     fd.name contains "/etc/ssh/sshd_config" or
+     fd.name contains "/etc/nginx/nginx.conf" or
+     fd.name contains "kong.yml")
+  output: >
+    Security configuration file modified
+    (file=%fd.name user=%user.name
+    command=%proc.cmdline)
+  priority: HIGH
+
+# ============================================
+# 列表定义
+# ============================================
+- list: trusted_dns_servers
+  items: ["8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1"]
+
+- list: platform_api_ips
+  items: ["10.0.0.0/8", "172.16.0.0/12"]
+
+- list: malicious_ips
+  items: []  # 从威胁情报源动态更新
+
+- macro: write_etc_common
+  condition: >
+    (evt.type in ("open", "openat", "openat2") and
+     evt.is_open_write=true and
+     (fd.name startswith /etc/ or
+      fd.name startswith /etc/))
