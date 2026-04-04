@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(specify init:*)",
+      "Bash(uvx:*)",
+      "Bash(specify:*)",
+      "Bash(curl -s https://api.github.com/repos/github/spec-kit/releases/latest)",
+      "Bash(curl -I https://github.com/github/spec-kit/releases/tag/templates-2025-08-25)"
+    ]
+  }
+}
