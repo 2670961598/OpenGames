@@ -11,7 +11,10 @@
       "Bash(cp Kimi_Agent_SpecKit/*.md .specify/memory/)",
       "Bash(cp Kimi_Agent_SpecKit/*.ts .specify/memory/)",
       "Bash(cp Kimi_Agent_SpecKit/*.mmd .specify/memory/)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(code --list-extensions)",
+      "Bash(.specify/templates/README.md:*)",
+      "Bash(git add:*)"
     ]
   }
 }
