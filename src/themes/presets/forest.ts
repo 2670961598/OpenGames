@@ -9,6 +9,7 @@ export const forestTheme: Theme = {
     'color-bg-secondary': '#1a3a1a',
     'color-bg-tertiary': '#2d5a2d',
     'color-bg-elevated': '#3d7a3d',
+    'color-bg-secondary-rgb': '26, 58, 26',
 
     // 文字
     'color-text-primary': '#e8f5e8',
@@ -57,6 +58,8 @@ export const forestTheme: Theme = {
     'text-lg': '18px',
     'text-xl': '20px',
     'text-2xl': '24px',
+    'text-3xl': '30px',
+    'text-4xl': '36px',
 
     // 间距
     'space-xs': '4px',
@@ -64,5 +67,16 @@ export const forestTheme: Theme = {
     'space-md': '16px',
     'space-lg': '24px',
     'space-xl': '32px',
+    'space-2xl': '48px',
+    'space-3xl': '64px',
+
+    // 透明度
+    'opacity-disabled': '0.5',
+    'opacity-hover': '0.8',
+
+    // Z-Index 层级
+    'z-dropdown': '1000',
+    'z-modal': '2000',
+    'z-toast': '3000',
   }
 }

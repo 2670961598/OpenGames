@@ -6,6 +6,7 @@
   --color-bg-secondary: #f5f5f5;
   --color-bg-tertiary: #e8e8e8;
   --color-bg-elevated: #ffffff;
+  --color-bg-secondary-rgb: 245, 245, 245;
 
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #666666;
@@ -46,12 +47,25 @@
   --text-lg: 18px;
   --text-xl: 20px;
   --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
 
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* 透明度 */
+  --opacity-disabled: 0.5;
+  --opacity-hover: 0.8;
+
+  /* Z-Index 层级 */
+  --z-dropdown: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
 
   /* 主题过渡动画 */
   --theme-transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;

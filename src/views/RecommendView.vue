@@ -11,15 +11,6 @@ const recommendedGames = ref([
   { id: 6, title: '格斗之王', category: '动作', rating: 4.9, image: '', color: 'negative' },
 ])
 
-// 分类标签
-const categories = ref([
-  { label: '全部', value: 'all' },
-  { label: '热门', value: 'hot' },
-  { label: '新品', value: 'new' },
-  { label: '独立游戏', value: 'indie' },
-])
-
-const activeCategory = ref('all')
 
 const playGame = (gameId: number) => {
   console.log('开始游戏:', gameId)
@@ -28,20 +19,6 @@ const playGame = (gameId: number) => {
 
 <template>
   <div class="recommend-view">
-    <!-- 分类标签 -->
-    <div class="category-section q-pa-md">
-      <q-chip
-        v-for="cat in categories"
-        :key="cat.value"
-        :label="cat.label"
-        :color="activeCategory === cat.value ? 'primary' : 'secondary'"
-        :text-color="activeCategory === cat.value ? 'white' : 'primary'"
-        clickable
-        @click="activeCategory = cat.value"
-        class="category-chip"
-      />
-    </div>
-
     <!-- 推荐内容 -->
     <q-scroll-area class="content-area">
       <div class="q-pa-md">
@@ -134,19 +111,6 @@ const playGame = (gameId: number) => {
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
-}
-
-.category-section {
-  display: flex;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-}
-
-.category-chip {
-  font-weight: 500;
-  transition: var(--theme-transition);
 }
 
 .content-area {

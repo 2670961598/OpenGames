@@ -9,6 +9,7 @@ export const lightTheme: Theme = {
     'color-bg-secondary': '#f5f5f5',
     'color-bg-tertiary': '#e8e8e8',
     'color-bg-elevated': '#ffffff',
+    'color-bg-secondary-rgb': '245, 245, 245',
 
     // 文字
     'color-text-primary': '#1a1a1a',
@@ -57,6 +58,8 @@ export const lightTheme: Theme = {
     'text-lg': '18px',
     'text-xl': '20px',
     'text-2xl': '24px',
+    'text-3xl': '30px',
+    'text-4xl': '36px',
 
     // 间距
     'space-xs': '4px',
@@ -64,5 +67,16 @@ export const lightTheme: Theme = {
     'space-md': '16px',
     'space-lg': '24px',
     'space-xl': '32px',
+    'space-2xl': '48px',
+    'space-3xl': '64px',
+
+    // 透明度
+    'opacity-disabled': '0.5',
+    'opacity-hover': '0.8',
+
+    // Z-Index 层级
+    'z-dropdown': '1000',
+    'z-modal': '2000',
+    'z-toast': '3000',
   }
 }

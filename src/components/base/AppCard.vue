@@ -69,7 +69,7 @@ defineProps<Props>()
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), #4caf50);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-success));
 }
 
 /* 森林主题：标题区域不同 */

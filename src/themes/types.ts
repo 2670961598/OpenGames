@@ -7,6 +7,9 @@ export interface ThemeTokens {
   'color-bg-tertiary': string
   'color-bg-elevated': string
 
+  // 背景色 RGB 格式（用于 rgba 透明度）
+  'color-bg-secondary-rgb': string
+
   // 文字色
   'color-text-primary': string
   'color-text-secondary': string
@@ -54,6 +57,8 @@ export interface ThemeTokens {
   'text-lg': string
   'text-xl': string
   'text-2xl': string
+  'text-3xl': string
+  'text-4xl': string
 
   // 间距
   'space-xs': string
@@ -61,6 +66,17 @@ export interface ThemeTokens {
   'space-md': string
   'space-lg': string
   'space-xl': string
+  'space-2xl': string
+  'space-3xl': string
+
+  // 透明度
+  'opacity-disabled': string
+  'opacity-hover': string
+
+  // Z-Index 层级
+  'z-dropdown': string
+  'z-modal': string
+  'z-toast': string
 }
 
 export interface Theme {

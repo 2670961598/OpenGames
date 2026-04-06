@@ -9,6 +9,7 @@ export const cyberpunkTheme: Theme = {
     'color-bg-secondary': '#1a1a2e',
     'color-bg-tertiary': '#16213e',
     'color-bg-elevated': '#0f3460',
+    'color-bg-secondary-rgb': '26, 26, 46',
 
     // 文字
     'color-text-primary': '#e0e0e0',
@@ -57,6 +58,8 @@ export const cyberpunkTheme: Theme = {
     'text-lg': '18px',
     'text-xl': '20px',
     'text-2xl': '24px',
+    'text-3xl': '30px',
+    'text-4xl': '36px',
 
     // 间距（复用）
     'space-xs': '4px',
@@ -64,5 +67,16 @@ export const cyberpunkTheme: Theme = {
     'space-md': '16px',
     'space-lg': '24px',
     'space-xl': '32px',
+    'space-2xl': '48px',
+    'space-3xl': '64px',
+
+    // 透明度（复用）
+    'opacity-disabled': '0.5',
+    'opacity-hover': '0.8',
+
+    // Z-Index 层级（复用）
+    'z-dropdown': '1000',
+    'z-modal': '2000',
+    'z-toast': '3000',
   }
 }
