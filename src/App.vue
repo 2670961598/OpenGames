@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import DevTestView from './views/DevTestView.vue'
 import RecommendView from './views/RecommendView.vue'
 import LibraryView from './views/LibraryView.vue'
@@ -7,6 +8,11 @@ import CreatorView from './views/CreatorView.vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import { useKeyboardInterceptor } from './composables/useKeyboardInterceptor.ts'
 import { useTheme } from './composables/useTheme.ts'
+
+const route = useRoute()
+
+// 判断是否是独立游戏窗口（路径以 /game/ 开头）
+const isGameWindow = computed(() => route.path.startsWith('/game/'))
 
 // 当前激活的 Tab
 const activeTab = ref('recommend')
@@ -51,6 +57,9 @@ onUnmounted(() => {
 <template>
   <!-- 开发者测试模式 -->
   <DevTestView v-if="isDevMode" />
+
+  <!-- 游戏独立窗口模式 -->
+  <router-view v-else-if="isGameWindow" />
 
   <!-- 正常应用界面 -->
   <q-layout v-else view="hHh lpR fFf" class="app-layout">

@@ -1,8 +1,9 @@
 import { ref, computed } from 'vue'
+import { isTauri } from '@tauri-apps/api/core'
 import type { UserSession, LoginCredential, AuthStatus } from '../types/user.ts'
 
 // 模拟模式
-const isMock = typeof window !== 'undefined' && !(window as any).__TAURI__
+const isMock = typeof window !== 'undefined' && !isTauri()
 
 // 模拟用户数据
 const mockUser: UserSession = {

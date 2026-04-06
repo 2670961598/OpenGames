@@ -12,8 +12,44 @@ const recommendedGames = ref([
 ])
 
 
-const playGame = (gameId: number) => {
-  console.log('开始游戏:', gameId)
+// 打开游戏
+const playGame = async (gameId: number) => {
+  // 检查是否在 Tauri 环境
+  const { isTauri } = await import('@tauri-apps/api/core')
+  const inTauri = isTauri()
+
+  if (inTauri) {
+    // 桌面端：创建新窗口
+    try {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+
+      // 检查窗口是否已存在
+      const existing = await WebviewWindow.getByLabel(`game-${gameId}`)
+      if (existing) {
+        await existing.setFocus()
+        return
+      }
+
+      // 创建新窗口 - 使用独立 HTML 入口
+      new WebviewWindow(`game-${gameId}`, {
+        url: '/game.html',
+        title: '游戏',
+        width: 1280,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        center: true,
+        resizable: true,
+        decorations: true,
+      })
+    } catch (err) {
+      // 失败时回退到当前窗口跳转
+      window.location.href = `/#/game/${gameId}`
+    }
+  } else {
+    // 移动端/网页：跳转路由
+    window.location.href = `/#/game/${gameId}`
+  }
 }
 </script>
 
@@ -107,15 +143,25 @@ const playGame = (gameId: number) => {
 
 <style scoped>
 .recommend-view {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: calc(100vh - 56px);
+  padding-top: 56px;
   background: var(--color-bg-primary);
 }
 
 .content-area {
-  flex: 1;
+  height: calc(100vh - 56px);
   background: var(--color-bg-primary);
+}
+
+@media (max-width: 768px) {
+  .recommend-view {
+    min-height: calc(100vh - 48px);
+    padding-top: 48px;
+  }
+
+  .content-area {
+    height: calc(100vh - 48px);
+  }
 }
 
 .featured-card {

@@ -10,8 +10,12 @@ import "./styles/variables.css";
 import "./styles/theme-base.css";
 
 import App from "./App.vue";
+import { router } from "./router";
 
 const app = createApp(App);
+
+// 使用 Vue Router
+app.use(router);
 
 app.use(Quasar, {
   plugins: {

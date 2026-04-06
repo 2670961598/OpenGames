@@ -23,8 +23,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-xl);
+  padding: calc(var(--space-xl) + 56px) var(--space-xl) var(--space-xl);
   background: var(--color-bg-primary);
+}
+
+@media (max-width: 768px) {
+  .library-view {
+    padding-top: calc(var(--space-xl) + 48px);
+  }
 }
 
 .placeholder {

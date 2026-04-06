@@ -10,7 +10,8 @@ const testItems = [
   { id: 'keyboard', name: '快捷键拦截测试', status: 'ready' },
   { id: 'theme', name: '主题切换测试', status: 'ready' },
   { id: 'auth', name: '登录状态切换', status: 'ready' },
-  { id: 'game', name: '游戏沙箱测试', status: 'pending' },
+  { id: 'game', name: '游戏窗口测试', status: 'ready' },
+  { id: 'sandbox', name: '游戏沙箱测试', status: 'pending' },
   { id: 'ipc', name: 'IPC 通信测试', status: 'pending' },
 ]
 
@@ -68,6 +69,62 @@ const testAuth = (state: 'login' | 'logout') => {
     addLog('用户: PlayerOne')
   } else {
     addLog('模拟登出')
+  }
+}
+
+// 测试游戏窗口
+const testGameWindow = async () => {
+  activeTest.value = 'game'
+  addLog('测试游戏窗口创建...')
+
+  // 检查是否在 Tauri 环境
+  const { isTauri } = await import('@tauri-apps/api/core')
+  if (!isTauri()) {
+    addLog('⚠️ 非 Tauri 环境，使用网页版')
+    window.open('/#/game/test-123', '_blank')
+    return
+  }
+
+  addLog('✅ 检测到 Tauri 环境')
+
+  try {
+    // 导入 Tauri v2 API
+    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+    addLog('✅ Tauri API 导入成功')
+
+    // 检查窗口是否已存在
+    const existing = await WebviewWindow.getByLabel('game-test')
+    if (existing) {
+      addLog('游戏窗口已存在，尝试聚焦')
+      await existing.setFocus()
+      addLog('✅ 已聚焦到现有窗口')
+      return
+    }
+
+    addLog('创建新游戏窗口...')
+    const newWindow = new WebviewWindow('game-test', {
+      url: '/game.html',
+      title: '测试游戏',
+      width: 1200,
+      height: 800,
+      minWidth: 800,
+      minHeight: 600,
+      center: true,
+      resizable: true,
+      decorations: false,
+    })
+
+    newWindow.once('tauri://created', () => {
+      addLog('✅ 游戏窗口创建成功（独立窗口）')
+    })
+
+    newWindow.once('tauri://error', (e) => {
+      addLog(`❌ 窗口创建失败: ${e}`)
+    })
+  } catch (err: any) {
+    addLog(`❌ 错误: ${err?.message || err}`)
+    addLog('尝试跳转网页版...')
+    window.open('/#/game/test-123', '_blank')
   }
 }
 
@@ -146,6 +203,7 @@ onUnmounted(() => {
             <button @click="testKeyboard">快捷键测试</button>
             <button @click="testAuth('login')">模拟登录</button>
             <button @click="testAuth('logout')">模拟登出</button>
+            <button @click="testGameWindow">🎮 游戏窗口测试</button>
             <button @click="simulateError" class="danger">模拟错误</button>
           </div>
         </div>
