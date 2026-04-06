@@ -1,160 +1,259 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { ref, onMounted, onUnmounted } from 'vue'
+import DevTestView from './views/DevTestView.vue'
+import RecommendView from './views/RecommendView.vue'
+import LibraryView from './views/LibraryView.vue'
+import ProfileView from './views/ProfileView.vue'
+import CreatorView from './views/CreatorView.vue'
+import { useKeyboardInterceptor } from './composables/useKeyboardInterceptor.ts'
+import { useTheme } from './composables/useTheme.ts'
 
-const greetMsg = ref("");
-const name = ref("");
+// 当前激活的 Tab
+const activeTab = ref('recommend')
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
+// 开发者测试模式
+const isDevMode = ref(false)
+
+// 启用快捷键拦截
+useKeyboardInterceptor()
+
+// 初始化主题
+const { initTheme, setTheme, themes, currentTheme } = useTheme()
+
+// Tab 列表
+const tabs = [
+  { name: 'recommend', label: '推荐', icon: 'star' },
+  { name: 'library', label: '游戏库', icon: 'sports_esports' },
+  { name: 'profile', label: '个人页面', icon: 'person' },
+  { name: 'creator', label: '创作者页面', icon: 'brush' },
+]
+
+// 组件映射
+const viewComponents: Record<string, any> = {
+  recommend: RecommendView,
+  library: LibraryView,
+  profile: ProfileView,
+  creator: CreatorView,
 }
+
+const currentView = () => viewComponents[activeTab.value] || RecommendView
+
+// 监听 `~ 键切换开发者模式
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === '`' || e.key === '~') {
+    e.preventDefault()
+    isDevMode.value = !isDevMode.value
+    console.log('[DevMode]', isDevMode.value ? '进入开发者模式' : '退出开发者模式')
+  }
+}
+
+onMounted(() => {
+  initTheme()
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
+
 </script>
 
 <template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
+  <!-- 开发者测试模式 -->
+  <DevTestView v-if="isDevMode" />
 
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
+  <!-- 正常应用界面 -->
+  <template v-else>
+    <q-layout view="hHh lpR fFf" class="app-layout">
+        <!-- 顶部导航栏 -->
+        <q-header class="app-header" height-hint="56">
+        <q-toolbar class="toolbar-custom">
+          <q-space />
 
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
-  </main>
+          <!-- Tab 导航 -->
+          <q-tabs
+            v-model="activeTab"
+            dense
+            class="app-tabs q-mr-md"
+            active-color="primary"
+            indicator-color="primary"
+            align="right"
+            narrow-indicator
+          >
+            <q-tab
+              v-for="tab in tabs"
+              :key="tab.name"
+              :name="tab.name"
+              :label="tab.label"
+              :icon="tab.icon"
+              class="tab-item"
+            />
+          </q-tabs>
+
+          <!-- 用户信息 -->
+          <div class="user-section">
+            <q-btn flat round dense class="q-mr-sm">
+              <q-avatar size="32px" color="primary" text-color="white">
+                <q-icon name="person" size="18px" />
+              </q-avatar>
+              <q-menu auto-close>
+                <q-list style="min-width: 150px">
+                  <q-item-label header>主题</q-item-label>
+                  <q-item
+                    v-for="theme in themes"
+                    :key="theme.name"
+                    clickable
+                    :active="currentTheme?.name === theme.name"
+                    @click="setTheme(theme.name)"
+                  >
+                    <q-item-section>{{ theme.label }}</q-item-section>
+                    <q-item-section side v-if="currentTheme?.name === theme.name">
+                      <q-icon name="check" size="16px" />
+                    </q-item-section>
+                  </q-item>
+                  <q-separator />
+                  <q-item clickable>
+                    <q-item-section>登录</q-item-section>
+                  </q-item>
+                  <q-item clickable>
+                    <q-item-section>注册</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </div>
+        </q-toolbar>
+      </q-header>
+
+      <!-- 主内容区域 -->
+      <q-page-container class="page-container">
+        <q-page class="page-content">
+          <component :is="currentView()" />
+        </q-page>
+      </q-page-container>
+    </q-layout>
+  </template>
 </template>
 
-<style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
 <style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
+/* 全局重置 */
+* {
   margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+#app {
+  height: 100%;
 }
 
-.row {
-  display: flex;
-  justify-content: center;
+/* 应用布局使用主题变量 */
+.app-layout {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+:deep(.q-header),
+.app-header {
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border);
 }
 
-a:hover {
-  color: #535bf2;
+:deep(.q-tabs),
+.app-tabs {
+  color: var(--color-text-secondary) !important;
 }
 
-h1 {
-  text-align: center;
+:deep(.q-toolbar) {
+  background: var(--color-bg-secondary) !important;
+  color: var(--color-text-primary) !important;
 }
 
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+:deep(.q-tabs) {
+  color: var(--color-text-secondary) !important;
 }
 
-button {
-  cursor: pointer;
+:deep(.q-tab--active) {
+  color: var(--color-accent) !important;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+:deep(.q-tab__indicator) {
+  background: var(--color-accent) !important;
 }
 
-input,
-button {
-  outline: none;
+:deep(.q-page-container) {
+  background: var(--color-bg-primary) !important;
 }
 
-#greet-input {
-  margin-right: 5px;
+:deep(.q-page) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+:deep(.q-menu) {
+  background: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border);
 }
 
+:deep(.q-item) {
+  color: var(--color-text-primary) !important;
+}
+
+:deep(.q-item__label--header) {
+  color: var(--color-text-secondary) !important;
+}
+
+:deep(.q-separator) {
+  background: var(--color-divider) !important;
+}
+
+:deep(.q-avatar) {
+  background: var(--color-accent) !important;
+  color: var(--color-text-inverse) !important;
+}
 </style>
+
+<style scoped>
+/* 工具栏自定义 */
+.toolbar-custom {
+  min-height: 48px;
+  padding: 0 8px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-item {
+  min-height: 48px;
+  font-weight: 500;
+  text-transform: none;
+  color: var(--color-text-secondary);
+}
+
+.user-section {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 1px solid var(--color-border);
+}
+
+/* 页面容器 */
+.page-container {
+  background: var(--color-bg-primary);
+}
+
+.page-content {
+  height: calc(100vh - 48px);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+</style>
+
