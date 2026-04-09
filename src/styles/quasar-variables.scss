@@ -1,0 +1,37 @@
+// Quasar 主题变量自定义
+// 参考: https://quasar.dev/style/theme-builder
+
+// 主色调 - 使用紫蓝渐变风格匹配项目
+$primary: #6366f1;
+$secondary: #8b5cf6;
+$accent: #ec4899;
+
+// 深色主题变量
+$dark: #0f0f0f;
+$dark-page: #0a0a0a;
+
+// 背景色
+$bg-primary: #0f0f0f;
+$bg-secondary: #1a1a1a;
+$bg-tertiary: #252525;
+
+// 文字色
+$text-primary: #e5e5e5;
+$text-secondary: #a1a1aa;
+
+// 状态色
+$positive: #10b981;
+$negative: #ef4444;
+$info: #3b82f6;
+$warning: #f59e0b;
+
+// 禁用 Quasar 的默认字体，使用系统字体
+$typography-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+// 圆角
+$generic-border-radius: 8px;
+$button-border-radius: 6px;
+
+// 阴影
+$shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+$shadow-2: 0 4px 12px rgba(0, 0, 0, 0.5);

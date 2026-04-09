@@ -14,7 +14,17 @@
       "Bash(cp:*)",
       "Bash(code --list-extensions)",
       "Bash(.specify/templates/README.md:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(.specify/scripts/powershell/create-new-feature.ps1:*)",
+      "Bash(bash:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(timeout 10s pnpm dev)",
+      "WebFetch(domain:www.radix-vue.com)",
+      "WebFetch(domain:quasar.dev)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(npx kill-port:*)"
     ]
   }
 }

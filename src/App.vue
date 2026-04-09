@@ -1,160 +1,126 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import DevTestView from './views/DevTestView.vue'
+import RecommendView from './views/RecommendView.vue'
+import LibraryView from './views/LibraryView.vue'
+import CreatorView from './views/CreatorView.vue'
+import AppHeader from './components/layout/AppHeader.vue'
+import { useKeyboardInterceptor } from './composables/useKeyboardInterceptor.ts'
+import { useTheme } from './composables/useTheme.ts'
 
-const greetMsg = ref("");
-const name = ref("");
+const route = useRoute()
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
+// 判断是否是独立游戏窗口（路径以 /game/ 开头）
+const isGameWindow = computed(() => route.path.startsWith('/game/'))
+
+// 当前激活的 Tab
+const activeTab = ref('recommend')
+
+// 开发者测试模式
+const isDevMode = ref(false)
+
+// 启用快捷键拦截
+useKeyboardInterceptor()
+
+// 初始化主题
+const { initTheme } = useTheme()
+
+// 组件映射
+const viewComponents: Record<string, any> = {
+  recommend: RecommendView,
+  library: LibraryView,
+  developer: CreatorView,
 }
+
+const currentView = () => viewComponents[activeTab.value] || RecommendView
+
+// 监听 `~ 键切换开发者模式
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === '`' || e.key === '~') {
+    e.preventDefault()
+    isDevMode.value = !isDevMode.value
+    console.log('[DevMode]', isDevMode.value ? '进入开发者模式' : '退出开发者模式')
+  }
+}
+
+onMounted(() => {
+  initTheme()
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
+  <!-- 开发者测试模式 -->
+  <DevTestView v-if="isDevMode" />
 
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
+  <!-- 游戏独立窗口模式 -->
+  <router-view v-else-if="isGameWindow" />
 
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
-  </main>
+  <!-- 正常应用界面 -->
+  <q-layout v-else view="hHh lpR fFf" class="app-layout">
+    <!-- 自定义 Header -->
+    <AppHeader
+      mode="home"
+      v-model="activeTab"
+    />
+
+    <!-- 主内容区域 -->
+    <q-page-container class="page-container">
+      <q-page class="page-content">
+        <component :is="currentView()" />
+      </q-page>
+    </q-page-container>
+  </q-layout>
 </template>
 
-<style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
 <style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
+/* 全局重置 */
+* {
   margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+html,
+body {
+  height: 100%;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+#app {
+  height: 100%;
 }
 
-.row {
-  display: flex;
-  justify-content: center;
+/* Quasar 布局适配 */
+.app-layout {
+  background: var(--color-bg-primary) !important;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+:deep(.q-page-container) {
+  background: var(--color-bg-primary) !important;
+  padding-top: 56px !important;
 }
 
-a:hover {
-  color: #535bf2;
+:deep(.q-page) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
+  min-height: calc(100vh - 56px) !important;
 }
 
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+/* 移动端适配 */
+@media (max-width: 768px) {
+  :deep(.q-page-container) {
+    padding-top: 48px !important;
   }
 
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
+  :deep(.q-page) {
+    min-height: calc(100vh - 48px) !important;
   }
 }
-
 </style>
