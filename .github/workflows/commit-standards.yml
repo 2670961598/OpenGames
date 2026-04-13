@@ -1,0 +1,127 @@
+name: Commit Standards Check
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+jobs:
+  check-commits:
+    name: Check Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Commit Message Format
+        shell: bash
+        run: |
+          echo "检查提交信息格式..."
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
+          fi
+          
+          commits=$(git rev-list $BASE_SHA..$HEAD_SHA 2>/dev/null || echo "")
+          
+          if [ -z "$commits" ]; then
+            echo "没有新提交需要检查"
+            exit 0
+          fi
+          
+          has_error=0
+          
+          for commit in $commits; do
+            subject=$(git log --format=%s -n 1 $commit)
+            body=$(git log --format=%b -n 1 $commit)
+            
+            echo ""
+            echo "检查提交: ${commit:0:7} - $subject"
+            
+            # 规则 1: 标题长度检查
+            if [ ${#subject} -lt 10 ]; then
+              echo "错误: 提交标题太短（${#subject} 字符），至少 10 个字符"
+              has_error=1
+            elif [ ${#subject} -gt 72 ]; then
+              echo "错误: 提交标题太长（${#subject} 字符），最多 72 个字符"
+              has_error=1
+            fi
+            
+            # 规则 2: 标题必须以特定动词开头
+            valid_prefixes="^(Add|Fix|Update|Delete|Refactor|Docs|Test|Chore|WIP|Merge|Revert|Release|Bump)"
+            if ! echo "$subject" | grep -qE "$valid_prefixes"; then
+              echo "错误: 标题必须以 Add/Fix/Update/Delete/Refactor/Docs/Test/Chore 等开头"
+              has_error=1
+            fi
+            
+            # 规则 3: 标题首字母必须大写
+            first_char=${subject:0:1}
+            if [[ ! "$first_char" =~ [A-Z] ]]; then
+              echo "错误: 标题首字母必须大写"
+              has_error=1
+            fi
+            
+            # 规则 4: 标题末尾不能有句点
+            last_char=${subject: -1}
+            if [ "$last_char" == "." ]; then
+              echo "错误: 标题末尾不能有句点"
+              has_error=1
+            fi
+          done
+          
+          if [ $has_error -eq 1 ]; then
+            echo ""
+            echo "提交检查失败，请修复上述问题"
+            echo "正确示例: Add user authentication feature"
+            exit 1
+          else
+            echo ""
+            echo "所有提交信息检查通过"
+          fi
+
+  check-history:
+    name: Check History Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check History Files
+        shell: bash
+        run: |
+          echo "检查 history 文档..."
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
+          fi
+          
+          changed_files=$(git diff --name-only $BASE_SHA..$HEAD_SHA)
+          
+          has_code_changes=0
+          if echo "$changed_files" | grep -qE "^src/|^vite\.config|^tsconfig"; then
+            has_code_changes=1
+          fi
+          
+          has_history_changes=0
+          if echo "$changed_files" | grep -qE "^history/"; then
+            has_history_changes=1
+          fi
+          
+          if [ $has_code_changes -eq 1 ] && [ $has_history_changes -eq 0 ]; then
+            echo "警告: 检测到代码变更但未创建 history 文件（不强制阻断）"
+          else
+            echo "文档检查通过"
+          fi
