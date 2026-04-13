@@ -35,3 +35,4 @@ app.use(Quasar, {
 });
 
 app.mount("#app");
+// full validation test
