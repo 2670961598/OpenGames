@@ -21,13 +21,13 @@ jobs:
         run: |
           echo "🔍 检查提交范围隔离..."
           
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          else
-            BASE_SHA="${{ github.event.before }}"
-            HEAD_SHA="${{ github.event.after }}"
-          fi
+          # 获取 base branch 最新 commit（避免 PR rebase 后 base.sha 过时）
+          git fetch origin ${{ github.base_ref }}
+          BASE_SHA=$(git rev-parse origin/${{ github.base_ref }})
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          echo "Base SHA: $BASE_SHA"
+          echo "Head SHA: $HEAD_SHA"
           
           # 获取所有变更的文件
           changed_files=$(git diff --name-only $BASE_SHA..$HEAD_SHA)
@@ -57,7 +57,7 @@ jobs:
               src/*|docs/frontend/*)
                 echo "frontend"
                 ;;
-              history/*|report/*|.github/*|README.md|.gitignore)
+              history/*|report/*|.github/*|README.md|.gitignore|*.gitkeep)
                 echo "meta"
                 ;;
               *)
