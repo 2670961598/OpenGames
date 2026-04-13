@@ -153,7 +153,7 @@ jobs:
           
           # 获取当前时间（Unix 时间戳，UTC）
           current_time=$(date -u +%s)
-          three_hours_ago=$((current_time - 3 * 3600))
+          three_hours_ago=$((current_time - 24 * 3600))
           
           echo "当前 UTC 时间: $(date -u -d @$current_time '+%Y-%m-%d %H:%M')"
           echo "3小时前 UTC: $(date -u -d @$three_hours_ago '+%Y-%m-%d %H:%M')"
@@ -185,7 +185,7 @@ jobs:
           echo "$history_files"
           echo ""
           
-          # 检查是否有文件是在 3h 以内新增/修改的（使用 git commit 时间）
+          # 检查是否有文件是在 24h 以内新增/修改的（使用 git commit 时间）
           has_recent_file=false
           
           for file in $history_files; do
@@ -210,12 +210,12 @@ jobs:
           echo ""
           
           if [ "$has_recent_file" = false ]; then
-            echo "❌ 错误: 未找到 3 小时内创建的 history 文件"
+            echo "❌ 错误: 未找到 24 小时内创建的 history 文件"
             echo ""
             echo "请确保："
             echo "  1. 在 history/$BRANCH/ 目录下创建新文件"
             echo "  2. 文件名使用当前时间: $(date -u '+%Y-%m-%d_%H%M')_描述.md"
-            echo "  3. 文件必须在提交前 3 小时内创建（基于 UTC 时间）"
+            echo "  3. 文件必须在提交前 24 小时内创建（基于 UTC 时间）"
             exit 1
           fi
           
