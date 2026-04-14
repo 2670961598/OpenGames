@@ -145,7 +145,7 @@ jobs:
             # 检查是否只有 meta 文件变更
             has_code_changes=false
             for file in $changed_files; do
-              if [[ ! "$file" =~ ^(history/|report/|.github/|README\.md|.gitignore|.*\.gitkeep)$ ]]; then
+              if [[ ! "$file" =~ ^(history/.*|report/.*|\.github/.*|README\.md|\.gitignore|.*\.gitkeep)$ ]]; then
                 has_code_changes=true
                 break
               fi

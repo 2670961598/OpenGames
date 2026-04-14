@@ -1,0 +1,13 @@
+[package]
+name = "og-infra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+og-core = { path = "../og-core" }
+async-trait = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
