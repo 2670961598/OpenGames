@@ -1,0 +1,17 @@
+[package]
+name = "og-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+og-core = { path = "../og-core" }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+mockall = "0.14.0"
+og-core = { path = "../og-core", features = ["test-utils"] }
