@@ -1,0 +1,22 @@
+[server]
+host = "0.0.0.0"
+port = 3000
+
+[database]
+url = "postgres://localhost/opengames_prod"
+
+[logging]
+level = "info"
+format = "json"
+
+[[logging.filter_modules]]
+target = "og_api"
+level = "info"
+
+[[logging.filter_modules]]
+target = "og_service"
+level = "info"
+
+[[logging.filter_modules]]
+target = "og_infra"
+level = "warn"
