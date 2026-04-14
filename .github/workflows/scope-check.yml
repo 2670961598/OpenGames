@@ -8,7 +8,7 @@ on:
 
 jobs:
   check-scope-isolation:
-    name: Check Single Scope Commit
+    name: Check Single Scope Per Commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,29 +19,17 @@ jobs:
       - name: Check Scope Isolation
         shell: bash
         run: |
-          echo "🔍 检查提交范围隔离..."
-          
+          echo "🔍 检查每个提交的范围隔离..."
+
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            git fetch origin ${{ github.base_ref }}
+            BASE_SHA=$(git rev-parse origin/${{ github.base_ref }})
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           else
             BASE_SHA="${{ github.event.before }}"
             HEAD_SHA="${{ github.event.after }}"
           fi
-          
-          # 获取所有变更的文件
-          changed_files=$(git diff --name-only $BASE_SHA..$HEAD_SHA)
-          
-          echo "变更的文件:"
-          echo "$changed_files"
-          echo ""
-          
-          # 定义职能范围
-          # frontend: src/ (但排除 src-tauri, src-server, src-test)
-          # client-backend: src-tauri/, docs/client-backend/
-          # server: src-server/, docs/server/
-          # test: src-test/, docs/test/
-          
+
           detect_scope() {
             local file="$1"
             case "$file" in
@@ -57,7 +45,7 @@ jobs:
               src/*|docs/frontend/*)
                 echo "frontend"
                 ;;
-              history/*|report/*|.github/*|README.md|.gitignore)
+              history/*|report/*|.github/*|README.md|.gitignore|*.gitkeep)
                 echo "meta"
                 ;;
               *)
@@ -65,48 +53,57 @@ jobs:
                 ;;
             esac
           }
-          
-          # 收集所有涉及的职能
-          scopes=""
-          for file in $changed_files; do
-            scope=$(detect_scope "$file")
-            if [ "$scope" != "meta" ] && [ "$scope" != "uncategorized" ]; then
-              if [[ ! "$scopes" =~ "$scope" ]]; then
-                scopes="$scopes $scope"
+
+          all_commits=$(git rev-list --reverse $BASE_SHA..$HEAD_SHA)
+          failed=false
+
+          for commit in $all_commits; do
+            commit_msg=$(git log -1 --format=%s $commit)
+            echo ""
+            echo "--------------------------------------------------"
+            echo "检查提交: $commit"
+            echo "提交信息: $commit_msg"
+
+            changed_files=$(git diff-tree --no-commit-id --name-only -r $commit)
+
+            scopes=""
+            for file in $changed_files; do
+              scope=$(detect_scope "$file")
+              if [ "$scope" != "meta" ] && [ "$scope" != "uncategorized" ]; then
+                if [[ ! " $scopes " =~ " $scope " ]]; then
+                  scopes="$scopes $scope"
+                fi
               fi
+            done
+
+            scopes=$(echo "$scopes" | xargs)
+            scope_count=$(echo "$scopes" | wc -w)
+
+            if [ $scope_count -eq 0 ]; then
+              echo "✅ 只有元数据变更，跳过职能检查"
+            elif [ $scope_count -gt 1 ]; then
+              echo "❌ 错误: 此提交包含多个职能的变更！"
+              echo "涉及的职能:"
+              for scope in $scopes; do
+                echo "  - $scope"
+              done
+              failed=true
+            else
+              echo "✅ 职能范围检查通过: $scopes"
             fi
           done
-          
-          scopes=$(echo "$scopes" | xargs)  # trim whitespace
-          
-          echo "检测到的职能范围: $scopes"
-          echo ""
-          
-          # 统计非 meta 职能数量
-          scope_count=$(echo "$scopes" | wc -w)
-          
-          if [ $scope_count -eq 0 ]; then
-            echo "✅ 只有元数据变更（history/report/ci配置等），跳过职能检查"
-          elif [ $scope_count -gt 1 ]; then
-            echo "❌ 错误: 一次提交包含多个职能的变更！"
+
+          if [ "$failed" = true ]; then
             echo ""
-            echo "涉及的职能:"
-            for scope in $scopes; do
-              echo "  - $scope"
-            done
-            echo ""
-            echo "请将这些变更拆分为多个独立的提交："
-            echo "  1. frontend: src/, docs/frontend/"
-            echo "  2. client-backend: src-tauri/, docs/client-backend/"
-            echo "  3. server: src-server/, docs/server/"
-            echo "  4. test: src-test/, docs/test/"
+            echo "❌ 存在包含多个职能的提交，请拆分后重试"
             exit 1
-          else
-            echo "✅ 职能范围检查通过: $scopes"
           fi
 
+          echo ""
+          echo "✅ 所有提交均通过职能范围隔离检查"
+
   check-history-requirement:
-    name: Check History Documentation
+    name: Check History Documentation Per Commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -117,10 +114,11 @@ jobs:
       - name: Check History File
         shell: bash
         run: |
-          echo "🔍 检查 History 文档要求..."
-          
+          echo "🔍 检查每个提交的 History 文档要求..."
+
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            git fetch origin ${{ github.base_ref }}
+            BASE_SHA=$(git rev-parse origin/${{ github.base_ref }})
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
             BRANCH="${{ github.event.pull_request.head.ref }}"
           else
@@ -128,95 +126,80 @@ jobs:
             HEAD_SHA="${{ github.event.after }}"
             BRANCH="${{ github.ref_name }}"
           fi
-          
-          echo "分支: $BRANCH"
-          echo "Base: ${BASE_SHA:0:7}"
-          echo "Head: ${HEAD_SHA:0:7}"
-          echo ""
-          
-          # 获取变更的文件
-          changed_files=$(git diff --name-only $BASE_SHA..$HEAD_SHA)
-          
-          # 检查是否只有 meta 文件变更
-          has_code_changes=false
-          for file in $changed_files; do
-            if [[ ! "$file" =~ ^(history/|report/|.github/|README\.md|.gitignore) ]]; then
-              has_code_changes=true
-              break
-            fi
-          done
-          
-          if [ "$has_code_changes" = false ]; then
-            echo "✅ 只有元数据变更，跳过 history 检查"
-            exit 0
-          fi
-          
-          # 获取当前时间（Unix 时间戳，UTC）
+
           current_time=$(date -u +%s)
-          three_hours_ago=$((current_time - 24 * 3600))
-          
-          echo "当前 UTC 时间: $(date -u -d @$current_time '+%Y-%m-%d %H:%M')"
-          echo "3小时前 UTC: $(date -u -d @$three_hours_ago '+%Y-%m-%d %H:%M')"
-          echo ""
-          
-          # 检查 history/{branch}/ 目录是否存在
-          history_dir="history/$BRANCH"
-          
-          if [ ! -d "$history_dir" ]; then
-            echo "❌ 错误: History 目录不存在: $history_dir"
+          twenty_four_hours_ago=$((current_time - 24 * 3600))
+
+          all_commits=$(git rev-list --reverse $BASE_SHA..$HEAD_SHA)
+          failed=false
+
+          for commit in $all_commits; do
+            commit_msg=$(git log -1 --format=%s $commit)
             echo ""
-            echo "请在提交前创建 history 记录文件:"
-            echo "  $history_dir/YYYY-MM-DD_HHMM_描述.md"
-            exit 1
-          fi
-          
-          # 获取这个提交新增或修改的 history 文件
-          history_files=$(echo "$changed_files" | grep "^history/$BRANCH/" || true)
-          
-          if [ -z "$history_files" ]; then
-            echo "❌ 错误: 未检测到 history/$BRANCH/ 目录下的文件变更"
-            echo ""
-            echo "每次代码提交必须在 history/$BRANCH/ 目录下创建或更新记录文件"
-            echo "文件命名格式: YYYY-MM-DD_HHMM_描述.md"
-            exit 1
-          fi
-          
-          echo "检测到的 history 文件:"
-          echo "$history_files"
-          echo ""
-          
-          # 检查是否有文件是在 24h 以内新增/修改的（使用 git commit 时间）
-          has_recent_file=false
-          
-          for file in $history_files; do
-            filename=$(basename "$file")
-            
-            # 检查文件名格式
-            if [[ "$filename" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})([0-9]{2}) ]]; then
-              # 使用 git log 获取文件最后一次修改的 commit 时间（UTC）
-              file_commit_time=$(git log --format=%ct -n 1 -- "$file" 2>/dev/null || echo "0")
-              
-              if [ "$file_commit_time" != "0" ] && [ "$file_commit_time" -ge "$three_hours_ago" ]; then
-                echo "✅ 找到近期文件: $filename (commit时间: $(date -u -d @$file_commit_time '+%Y-%m-%d %H:%M') UTC)"
-                has_recent_file=true
-              else
-                echo "⚠️ 文件 commit 时间较旧: $filename ($(date -u -d @$file_commit_time '+%Y-%m-%d %H:%M') UTC)"
+            echo "--------------------------------------------------"
+            echo "检查提交: $commit"
+            echo "提交信息: $commit_msg"
+
+            changed_files=$(git diff-tree --no-commit-id --name-only -r $commit)
+
+            # 检查是否只有 meta 文件变更
+            has_code_changes=false
+            for file in $changed_files; do
+              if [[ ! "$file" =~ ^(history/|report/|.github/|README\.md|.gitignore|.*\.gitkeep)$ ]]; then
+                has_code_changes=true
+                break
               fi
-            else
-              echo "⚠️ 文件名格式不匹配: $filename"
+            done
+
+            if [ "$has_code_changes" = false ]; then
+              echo "✅ 只有元数据变更，跳过 history 检查"
+              continue
+            fi
+
+            # 检查该 commit 是否变更了 history/$BRANCH/ 下的文件
+            history_files=$(echo "$changed_files" | grep "^history/$BRANCH/" || true)
+
+            if [ -z "$history_files" ]; then
+              echo "❌ 错误: 此代码提交未检测到 history/$BRANCH/ 目录下的文件变更"
+              echo "变更文件:"
+              echo "$changed_files"
+              failed=true
+              continue
+            fi
+
+            echo "检测到的 history 文件:"
+            echo "$history_files"
+
+            # 检查 history 文件名格式和 commit 时间
+            has_recent_file=false
+            for file in $history_files; do
+              filename=$(basename "$file")
+
+              if [[ "$filename" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})([0-9]{2}) ]]; then
+                file_commit_time=$(git log --format=%ct -n 1 -- "$file" 2>/dev/null || echo "0")
+
+                if [ "$file_commit_time" != "0" ] && [ "$file_commit_time" -ge "$twenty_four_hours_ago" ]; then
+                  echo "✅ 找到近期文件: $filename (commit时间: $(date -u -d @$file_commit_time '+%Y-%m-%d %H:%M') UTC)"
+                  has_recent_file=true
+                else
+                  echo "⚠️ 文件 commit 时间较旧: $filename ($(date -u -d @$file_commit_time '+%Y-%m-%d %H:%M') UTC)"
+                fi
+              else
+                echo "⚠️ 文件名格式不匹配: $filename"
+              fi
+            done
+
+            if [ "$has_recent_file" = false ]; then
+              echo "❌ 错误: 未找到 24 小时内创建的 history 文件"
+              failed=true
             fi
           done
-          
-          echo ""
-          
-          if [ "$has_recent_file" = false ]; then
-            echo "❌ 错误: 未找到 24 小时内创建的 history 文件"
+
+          if [ "$failed" = true ]; then
             echo ""
-            echo "请确保："
-            echo "  1. 在 history/$BRANCH/ 目录下创建新文件"
-            echo "  2. 文件名使用当前时间: $(date -u '+%Y-%m-%d_%H%M')_描述.md"
-            echo "  3. 文件必须在提交前 24 小时内创建（基于 UTC 时间）"
+            echo "❌ 部分提交未通过 history 文档检查"
             exit 1
           fi
-          
-          echo "✅ History 文档检查通过"
+
+          echo ""
+          echo "✅ 所有提交均通过 history 文档检查"
